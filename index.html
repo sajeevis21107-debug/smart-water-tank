@@ -1,0 +1,141 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Water Tank IoT</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#0b1220;color:#f1f5f9}
+header{padding:24px 18px;text-align:center;background:#111c30;border-bottom:1px solid #26364d}
+header h1{margin:0 0 8px;font-size:25px}
+header p{margin:0;color:#9fb2ca;font-size:14px}
+main{max-width:950px;margin:25px auto;padding:0 16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:15px}
+.card{background:#152238;border:1px solid #2a3b55;border-radius:15px;padding:20px}
+.label{color:#a8bad0;font-size:14px}
+.value{font-size:32px;font-weight:bold;margin:15px 0 8px}
+.sub{font-size:13px;color:#9fb2ca}
+.bar{height:13px;background:#34445c;border-radius:20px;overflow:hidden;margin:18px 0 10px}
+#fill{height:100%;width:0%;background:#22c55e;transition:width .5s}
+.status{font-weight:bold;color:#4ade80}
+.pill{display:inline-block;border-radius:20px;padding:7px 12px;background:#26364d;font-size:13px}
+section{margin-top:18px}
+footer{text-align:center;color:#8496ad;padding:24px;font-size:13px}
+#error{color:#f87171;margin-top:12px;font-size:13px}
+</style>
+</head>
+<body>
+<header>
+  <h1>💧 Smart Water Tank IoT</h1>
+  <p>Real-time water level monitoring dashboard</p>
+</header>
+
+<main>
+  <div class="grid">
+    <div class="card">
+      <div class="label">Water Level</div>
+      <div class="value"><span id="level">--</span>%</div>
+      <div class="bar"><div id="fill"></div></div>
+      <div class="sub">Tank capacity level</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Sensor Distance</div>
+      <div class="value"><span id="distance">--</span></div>
+      <div class="sub">Centimeters (cm)</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Tank Status</div>
+      <div class="value" id="status">--</div>
+      <div class="sub">Current water condition</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Ultrasonic Sensor</div>
+      <div class="value"><span class="pill" id="sensor">--</span></div>
+      <div class="sub">Sensor connection status</div>
+    </div>
+  </div>
+
+  <section class="card">
+    <div class="label">Cloud Connection</div>
+    <p><span class="pill" id="connection">Connecting...</span></p>
+    <div class="sub">Last update: <span id="updated">Waiting for data</span></div>
+    <div id="error"></div>
+  </section>
+</main>
+
+<footer>Smart Water Tank IoT | ESP32 + HC-SR04 + Firebase</footer>
+
+<script>
+const DATABASE_URL =
+  "https://smartwatertankiot-53713-default-rtdb.firebaseio.com";
+
+const tankURL = DATABASE_URL + "/tank.json";
+
+async function updateDashboard() {
+  const connection = document.getElementById("connection");
+  const error = document.getElementById("error");
+
+  try {
+    const response = await fetch(tankURL + "?_=" + Date.now(), {
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      throw new Error("HTTP " + response.status);
+    }
+
+    const data = await response.json();
+
+    if (!data || typeof data !== "object") {
+      throw new Error("No tank data found");
+    }
+
+    const level = Number(data.level);
+    const distance = Number(data.distance);
+
+    if (!Number.isFinite(level) || !Number.isFinite(distance)) {
+      throw new Error("Invalid sensor data");
+    }
+
+    const safeLevel = Math.max(0, Math.min(100, level));
+
+    document.getElementById("level").textContent =
+      safeLevel.toFixed(0);
+
+    document.getElementById("distance").textContent =
+      distance.toFixed(1);
+
+    document.getElementById("fill").style.width =
+      safeLevel + "%";
+
+    document.getElementById("status").textContent =
+      data.status ?? "UNKNOWN";
+
+    document.getElementById("sensor").textContent =
+      data.sensor ?? "UNKNOWN";
+
+    document.getElementById("updated").textContent =
+      data.updatedAt != null
+        ? new Date(Number(data.updatedAt)).toLocaleString()
+        : "Not provided";
+
+    connection.textContent = "Connected";
+    connection.style.color = "#4ade80";
+    error.textContent = "";
+  } catch (e) {
+    connection.textContent = "Connection / data error";
+    connection.style.color = "#f87171";
+    error.textContent = e.message;
+  }
+}
+
+updateDashboard();
+setInterval(updateDashboard, 3000);
+</script>
+</body>
+</html>
